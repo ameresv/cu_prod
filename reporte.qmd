@@ -1,0 +1,548 @@
+---
+title: "Análisis de producción de cobre en Perú"
+author: "por Ing. Alí Meres (CIP:173917)"
+format: 
+  revealjs:
+    auto-animate: true
+    slide-number: true
+    chalkboard: 
+      buttons: false
+    footer: "Prohibida su reproducción sin consentimiento de autor"
+editor: visual
+---
+## Resumen
+
+## Puntos a tratar
+
+- Producción Nacional de Cobre.
+
+- Comparativo de producción 2022 vs 2021.
+
+- Análisis de los principales actores.
+
+- Evolución del empleo minero en Perú.
+
+- Otros puntos a considerar.
+
+- Conclusiones
+
+- Referencias
+
+## Producción Nacional de Cobre
+
+-   La producción nacional de Cobre ha venido una tendencia al alta durante los ultimos dos años. Esto se ha debido, principalmente, al ingreso de proyectos como [Marcobre](https://www.marcobre.com/) (Jul-21) y [Quellaveco](https://www.angloamerican.com/products/copper/quellaveco) (Set-22).
+
+-   A pesar de la variación presente, se observa que la producción no ha disminuido de **170k TMF al mes**. Esto se debe, principalmente, a los distintos esfuerzos de los principales productores de Cu tales como el movimiento de material de stockpile (material de menor contenido de Cu) hacia la planta para garantizar el continuo trabajo de los equipos.
+
+## Producción Nacional de Cobre
+
+-   Por otro lado, el país atravesó (y continua atravesando) por momentos de mucha incertidumbre en las zonas mineras. Entre varios hechos, se destacan:
+
+    -   [Manifestaciones y bloqueos[^1] en la zona sur del país.]{style="font-size: 35px;"}
+
+    -   [Atentados contra la propiedad privada por parte de los manifestantes[^2]. Estos eventos generaron la paralización de las operaciones en Cuajone (Moquegua).]{style="font-size: 35px;"} 
+
+[^1]: https://gestion.pe/economia/comuneros-amenazan-tomar-las-bambas-y-bloquear-vias-a-todas-las-minas-del-pais-noticia/
+
+[^2]: https://gestion.pe/economia/empresas/cuajone-sin-agua-southern-peru-alerta-riesgo-de-cierre-de-minas-tras-50-dias-de-bloqueos-noticia/
+
+## Comparativo de producción vs [2021]{style="color: #D55E00;"}
+
+La figura a continuación confirma la tendencia al alza de la producción nacional de cobre. La zona de análisis (Sep.2022 - Nov.2022) resalta el marco de tiempo al presente estudio.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(fs)
+library(reactable)
+library(gghighlight)
+library(htmltools)
+library(readxl)
+library(lubridate)
+library(plotly)
+library(cowplot)
+library(scales)
+library(ggtext)
+theme_set(theme_cowplot())
+
+data <- read_excel(here::here("../Plusmining/PROD-COBRE.xlsx"), 
+                   sheet = "CONSOLIDADO") 
+
+data_lean_1 <- data %>% 
+  pivot_longer(
+    cols = !c(TITULAR, REGION),
+    names_to = "PERIODO",
+    values_to = "CU_PROD"
+  ) %>% 
+  mutate(
+    PERIODO = as_date(as.numeric(PERIODO),origin="1899-12-30")
+  ) 
+
+data_lean_2 <- data_lean_1 %>% 
+  group_by(PERIODO) %>% 
+  summarize(
+    PROD_TOTAL = sum(CU_PROD)
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    YEAR = as_factor(year(PERIODO)),
+    MES = month(PERIODO, label = TRUE)
+  )
+
+data_lean_3 <- data_lean_1 %>% 
+  mutate(
+   TITULAR = as_factor(TITULAR),
+   REGION = as_factor(REGION),
+    YEAR = as_factor(year(PERIODO)),
+    MES = month(PERIODO, label = TRUE)
+  )
+
+data_lean_4 <- data_lean_3 %>% 
+  filter(YEAR == 2022) %>% 
+  group_by(TITULAR,REGION) %>% 
+  summarise(
+    PROD_CU = sum(CU_PROD)
+  ) %>% 
+  ungroup()
+
+data_lean_5 <- data_lean_3 %>% 
+  filter(YEAR == 2022) %>% 
+  mutate(
+    TITULAR = case_when(
+      (TITULAR == 'COMPAÑÍA MINERA ANTAMINA S.A.') ~ 'COMPAÑÍA MINERA ANTAMINA S.A.',
+      (TITULAR == 'SOCIEDAD MINERA CERRO VERDE S.A.A.') ~ 'SOCIEDAD MINERA CERRO VERDE S.A.A.',
+      (TITULAR == 'SOUTHERN PERÚ COPPER CORPORATION') ~ 'SOUTHERN PERÚ COPPER CORPORATION',
+      (TITULAR == 'MINERA LAS BAMBAS S.A.') ~ 'MINERA LAS BAMBAS S.A.',
+      TRUE ~ 'OTROS'
+    )
+  ) %>% 
+  select(PERIODO,TITULAR,CU_PROD) %>% 
+  mutate(
+    TITULAR = as_factor(TITULAR)
+  ) %>% 
+  filter(TITULAR != "OTROS")
+
+nota1 <- tibble(
+  label = c(
+    "**Zona de análisis**"
+  ),
+  x = "Nov",
+  y = 220000,
+  hjust = 0.69,
+  vjust = 0.5,
+  angle = 0,
+)
+
+```
+
+```{r plot_a}
+#| echo: FALSE
+#| fig-align: "center"
+
+ggplot() + 
+  geom_line(data = data_lean_2,
+            mapping = aes(
+                        x = MES, 
+                        y = PROD_TOTAL,
+                        group = YEAR,
+                        color = YEAR), linewidth = 2) +
+  scale_color_manual(values = c("#D55E00", "#0072B2")) +
+  scale_y_continuous(labels = unit_format(unit = "K", scale = 1e-3)) +
+  labs(
+    title = "Producción nacional de cobre (kTMF) de <span style = 'color:#0072B2;'>2022</span> vs <span style = 'color:#D55E00;'>2021</span>",
+    x = element_blank(),
+    y = element_blank(),
+    caption = "Fuente: Elaboración Propia. Referencia: Ministerio de Energía y Minas de Perú. Ene-2023"
+  ) +
+  theme(
+    plot.title = element_markdown(hjust=0.5),
+    legend.position = "None"
+  ) +      
+  annotate(
+    geom = "rect",
+    xmin = "Set",
+    xmax = "Dic",
+    ymin = 190000,
+    ymax = 240000,
+    alpha = .1
+  ) + 
+  geom_richtext(data = nota1,
+                mapping = aes(
+                  x = x, 
+                  y = y,
+                  label = label,
+                  hjust = hjust, 
+                  vjust = vjust))
+
+
+```
+
+## Análisis de los principales actores {.scrollable}
+
+[Entiéndase **principales actores** como las principales empresas del sector, cuya contribución acumulada a la producción nacional de cobre lidera el cuadro a continuación:]{style="font-size: 35px;"}
+
+```{css ref.label="styles", echo=FALSE}
+```
+
+```{r table}
+#| echo: false
+
+tbl <- reactable(
+  data_lean_4,
+  pagination = FALSE,
+  showSortIcon = FALSE,
+  compact = TRUE,
+  ######## NEW ########
+  defaultColDef = colDef(
+    ### define header styling
+    headerStyle = list(
+      textAlign = "left",
+      fontSize = "18px",
+      textTransform = "uppercase",
+      color = "#0c0c0c",
+      verticalAlign = "bottom"
+    ),
+    ### define default column styling
+    style = list(
+      verticalAlign = "center",
+      align = "left"
+    )
+  ),
+  columns = list(
+    TITULAR = colDef(
+      name = "Titular Minero",
+      minWidth = 200,
+      cell = function(value, index) {
+        div(
+          class = "team",
+          img(class = "team-flag", alt = paste(value, "flag"), src = sprintf("../Plusmining/images/%s.png", value)),
+          div(
+            span(class = "team-name", value)
+          )
+        )
+      }
+    ),
+    REGION = colDef(
+      name = "Region",
+      minWidth = 80,
+      class = "region"
+    ),
+    PROD_CU = colDef(
+      name = "Cobre producido",
+      cell = function(value) {
+        width <- paste0(value * 100 / max(data_lean_4$PROD_CU), "%")
+        value <- format(value, big.mark = ",")
+        value <- format(value, width = 20, justify = "right")
+        bar <- div(
+          class = "bar-chart",
+          style = list(marginRight = "6px"),
+          div(
+            class = "bar",
+            style = list(width = width, backgroundColor = "#0072B2")
+          )
+        )
+        div(class = "bar-cell", span(class = "number", value), bar)
+      }
+    )
+  )
+)
+
+div(class = "standings",
+  div(class = "title",
+    h2('Producción de cobre acumulado año 2022'),
+  ),
+  tbl
+)
+```
+
+::: aside 
+[Fuente: Elaboración Propia. Referencia: Ministerio de Energía y Minas de Perú. Ene-2023]{style="font-size: 20px;text-align: right;"} 
+:::
+
+## Análisis de los principales actores
+
+El detalle de la producción de Cobre (kTMF) de las cuatro empresas seleccionadas es presentado a continuación:
+
+```{r production_graphs}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+
+ b <- ggplot() +
+  geom_line(
+    data = data_lean_5,
+    mapping = aes(
+      x = PERIODO,
+      y = CU_PROD,
+      color = TITULAR,
+      group = TITULAR
+    ),
+    linewidth = 1
+  ) +
+  scale_y_continuous(labels = unit_format(unit = "K", scale = 1e-3)) +
+  annotate(
+    geom = "rect",
+    xmin = as_date("2022-09-01"),
+    xmax = as_date("2022-12-01"),
+    ymin = 20000,
+    ymax = 45000,
+    alpha = .1
+  ) + 
+  labs(
+    title = "Producción de cobre (kTMF) de las empresas seleccionadas",
+    x = element_blank(),
+    y = element_blank(),
+    caption = "Fuente: Elaboración Propia. Referencia: Ministerio de Energía y Minas de Perú. Ene-2023"
+  ) +
+  guides(
+    color=guide_legend(ncol=2),
+    guide_legend(label.position = "right")
+  ) +
+  theme(
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+b
+```
+
+## Compañía Minera Antamina S.A.
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.65em"}
+Antamina posee un yacimiento polimetálico tipo Skarn. El comportamiento variable del cobre para este periodo responde al acceso de nuevas fases de minado ricas en metales como Zn o Ag.
+
+De esta manera, se estima un comportamiento "flat" de la producción de cobre para los siguientes meses, junto a un repunte considerable, una vez el mineral rico en Cobre sea alcanzado una vez más.
+:::
+:::
+
+::: {.column width="50%"}
+```{r Antamina}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+  b + 
+    gghighlight(
+      max(CU_PROD), 
+      max_highlight = 1L, 
+      use_direct_label = FALSE, 
+      keep_scales = TRUE
+    ) +
+    theme(
+      plot.title = element_blank(),
+      legend.position = "None"
+    )
+```
+:::
+:::
+
+::: callout-note
+[Es importante resaltar que en Antamina, no se ha visto tan afectada por los incidentes provenientes de los ocurridos en el País. Por tanto, sus niveles de producción se mantienen robustos para el Q4-2022 y Q1-2023.]{style="font-size: 25px;"} 
+:::
+
+## Sociedad Minera Cerro Verde S.A.A
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.65em"}
+Cerro Verde, subsidiaria de Freeport-McMoran Inc, ha reportado sólidos resultados durante el año 2022. La variación al alza a final de año se da como respuesta a la baja productividad de febrero del mismo año. Esto como consecuencia de repuntes de casos de COVID-19 entre sus trabajadores. 
+
+Fuera de ello, la empresa minera ubicada en Arequipa no ha presentado cambios relevantes durante el periodo de tiempo en análisis.
+:::
+:::
+
+::: {.column width="50%"}
+```{r Cerro_Verde}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+  b + 
+    gghighlight(
+      TITULAR == "SOCIEDAD MINERA CERRO VERDE S.A.A.", 
+      max_highlight = 1L, 
+      use_direct_label = FALSE,
+      keep_scales = TRUE
+    ) +
+    theme(
+      plot.title = element_blank(),
+      legend.position = "None"
+    )
+```
+:::
+:::
+
+::: callout-note
+[Para resaltar, se ha reportado sólidos resultados del manejo interno ante los conflictos sociales generados en la región de Arequipa durante los últimos meses del año.]{style="font-size: 25px;"} 
+:::
+
+## [Southern Perú Copper Corporation (SPCC)]{style="font-size:0.9em"}
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.65em"}
+SPCC cuenta con dos unidades productivas en Perú: Cuajone (Moquegua) y Toquepala (Tacna). Esta empresa ha sufrido cambios drásticos en la producción de cobre en sus operaciones, principalmente en Cuajone, a partir de los disturbios generados por los manifestantes. Estos disturbios generaron que Cuajone se encuentre sin agua potable por poco más de 50 días.
+:::
+:::
+
+::: {.column width="50%"}
+```{r SPCC}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+  b + 
+    gghighlight(
+      TITULAR == "SOUTHERN PERÚ COPPER CORPORATION", 
+      max_highlight = 1L, 
+      use_direct_label = FALSE,
+      keep_scales = TRUE
+    ) +
+    theme(
+      plot.title = element_blank(),
+      legend.position = "None"
+    )
+```
+:::
+:::
+
+::: callout-note
+[Si bien las negociaciones y la puesta en marcha al servicio demoraron considerablemente, la empresa no escatimó en esfuerzos en no paralizar las operaciones tanto de la mina, planta, refineria y fundición.]{style="font-size: 25px;"} 
+:::
+
+## Minera Las Bambas S.A.
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.60em"}
+Minera Las Bambas, subsidiaria de MMG, ha experimentado distintos bloqueos del denominado "Corredor Minero del Sur" durante la parte final del 2022. Estos bloqueos obligaron a reducir la capacidad de operación y posterior paralización de labores en dos oportunidades este año.
+
+Acuerdos no consolidados entre la gestión anterior de la Presidencia de Consejo de Ministros (PCM) y las comunidades aledañas son las principales causas. 
+:::
+:::
+
+::: {.column width="50%"}
+```{r Las_Bambas}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-align: center
+  b + 
+    gghighlight(
+      TITULAR == "MINERA LAS BAMBAS S.A.", 
+      max_highlight = 1L, 
+      use_direct_label = FALSE,
+      keep_scales = TRUE
+    ) +
+    theme(
+      plot.title = element_blank(),
+      legend.position = "None"
+    )
+```
+:::
+:::
+
+::: callout-note
+[Esta operación es muy vulnerable ante bloqueos del mencionado Corredor. La gestión de conflictos mostrada por las autoridades no garantiza el desarrollo de los trabajos en el largo plazo.]{style="font-size: 19px;"} 
+:::
+
+## Otros puntos a considerar
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.70em"}
+  -   El debilitamiento del Estado para enfrentar los conflictos está afectando a toda la sociedad y a la capacidad, como país, de reactivar la economía y garantizar la seguridad de la población y generar empleo formal. Asimismo, se viene generando un terrible precedente hacia conflictos en otras zonas mineras
+
+  -   Un claro ejemplo de ello es la puesta en "espera" del proyecto Ccoroccohuayco de Antapacay (Glencore) y la espera final por parte de Newmont sobre el proyecto Yanacocha Sulfuros
+:::
+:::
+
+::: {.column width="50%"}
+::: {style="font-size:0.70em"}
+  -   A finales de 2022, se ha llevado a cabo la elección de gobernantes en las distintas regiones mineras clave del sur. Esta elección dejó como ganadores a candidatos con un factor común: **un discurso en contra de la minería**.
+  
+  -   Finalmente, al momento de elaboración del presente informe, se viene reportanto bloqueos y disturbios en el Corredor Minero del Sur afectando minas como Las Bambas, Contancia y Antapaccay.
+:::
+:::
+:::
+
+## Empleo minero en el Perú
+
+
+
+## Conclusiones
+
+## Referencias
+
+::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.80em"}
+- Sobre Yanacocha Sulfuros [Diario La República](https://larepublica.pe/verificador/2021/08/10/es-falso-que-se-suspendio-el-proyecto-minero-yanacocha-de-sulfuros/), [Diario Gestión](https://gestion.pe/economia/empresas/peru-newmont-retrasa-decision-sobre-yanacocha-sulfuros-hasta-segundo-semestre-del-2022-noticia/)
+
+- Sobre paralización de Cuajone. [Revista Tecnología Minera](https://tecnologiaminera.com/noticia/cuajone-cumplio-mas-de-40-dias-sin-agua-ni-dialogo-1649652119)
+
+- Sobre paralización de Las Bambas [InfoBae](https://www.infobae.com/america/peru/2022/11/03/minera-las-bambas-reduce-progresivamente-sus-operaciones-por-bloqueos-de-carreteras/)
+
+- Sobre nuevo bloqueo del Corredor Vial Sur [Revista ProActivo](https://proactivo.com.pe/las-bambas-hudbay-y-antapaccay-no-pueden-transportar-mineral-por-protestas-en-el-corredor-minero-del-sur/)
+
+- Sobre paralización de Ccoroccohuayco. [La República](https://www.ocmal.org/cusco-espinar-rechaza-proyecto-minero-ccoroccohuayco/)
+:::
+:::
+
+::: {.column width="50%"}
+::: {style="font-size:0.80em"}
+- Conflictos sociales costaron más de S/1.500 Millones a la minería en 2021. [Instituto Peruano de Economía](https://www.ipe.org.pe/portal/conflictos-sociales-costaron-mas-de-s-1-500-millones-a-la-mineria/)
+
+- Observatorio de Conflictos Mineros en el Perú. [Reporte 2do semestre 2022](https://conflictosmineros.org.pe/2022/12/14/observatorio-de-conflictos-mineros-del-peru-segundo-semestre-2022/)
+
+- Datos tomados del [Ministerio de Energia y Minas del Perú](https://www.gob.pe/institucion/minem/informes-publicaciones/3614940-produccion-minera). Consultado Ene.2023
+
+- Boletin estadístico Minero Nov.2022 [Ministerio de Energía y Minas del Perú](https://cdn.www.gob.pe/uploads/document/file/4023198/BEM%2011-2022.pdf?v=1672945433). Consultado Ene.2023
+:::
+:::
+:::
+
+```{css styles, eval=FALSE, echo=FALSE}
+.bar-cell {
+  display: flex;
+  align-items: center;
+}
+.number {
+  font-size: 20px;
+  align-items: center;
+}
+.bar-chart {
+  flex-grow: 1;
+  margin-left: 6px;
+  height: 22px;
+  align-items: center;
+}
+.bar {
+  height: 100%;
+  align-items: center;
+}
+.team {
+  display: flex;
+  align-items: center;
+}
+.team-flag {
+  height: 1.5rem;
+}
+.team-name {
+  font-size: 20px;
+  margin-left: 1.0rem;
+}
+.region {
+  font-size: 20px;
+  margin-left: 1.0rem;
+  align-items: center;
+}
+.title{
+  font-size: 15px;
+}
+
+```
