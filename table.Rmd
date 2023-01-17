@@ -1,0 +1,183 @@
+---
+title: "Producción de cobre en Perú (Ene.2022-Nov.2022)"
+author: "por: Ing. Alí Ivan Meres Vargas (CIP: 173917)"
+project:
+  type: website
+  output-dir: docs
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(reactable.static = TRUE)
+```
+
+```{css ref.label="styles", echo=FALSE}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(reactable)
+library(htmltools)
+library(readxl)
+library(lubridate)
+
+data <- read_excel(here::here("../cu_prod_peru_tbl/PROD-COBRE.xlsx"), 
+                   sheet = "CONSOLIDADO") 
+
+data_lean_1 <- data %>% 
+  pivot_longer(
+    cols = !c(TITULAR, REGION),
+    names_to = "PERIODO",
+    values_to = "CU_PROD"
+  ) %>% 
+  mutate(
+    PERIODO = as_date(as.numeric(PERIODO),origin="1899-12-30")
+  ) 
+
+data_lean_2 <- data_lean_1 %>% 
+  group_by(PERIODO) %>% 
+  summarize(
+    PROD_TOTAL = sum(CU_PROD)
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    YEAR = as_factor(year(PERIODO)),
+    MES = month(PERIODO, label = TRUE)
+  )
+
+data_lean_3 <- data_lean_1 %>% 
+  mutate(
+   TITULAR = as_factor(TITULAR),
+   REGION = as_factor(REGION),
+    YEAR = as_factor(year(PERIODO)),
+    MES = month(PERIODO, label = TRUE)
+  )
+
+data_lean_4 <- data_lean_3 %>% 
+  filter(YEAR == 2022) %>% 
+  group_by(TITULAR,REGION) %>% 
+  summarise(
+    PROD_CU = sum(CU_PROD)
+  ) %>% 
+  ungroup()
+
+```
+
+```{r table}
+#| echo: false
+
+tbl <- reactable(
+  data_lean_4,
+  pagination = FALSE,
+  showSortIcon = FALSE,
+  compact = TRUE,
+  ######## NEW ########
+  defaultColDef = colDef(
+    ### define header styling
+    headerStyle = list(
+      textAlign = "left",
+      fontSize = "18px",
+      lineHeight = "14px",
+      textTransform = "uppercase",
+      color = "#0c0c0c",
+      fontWeight = "700",
+      borderBottom = "2px solid #e9edf0",
+      paddingBottom = "3px",
+      verticalAlign = "bottom"
+    ),
+    ### define default column styling
+    style = list(
+      fontSize = "12px",
+      verticalAlign = "center",
+      align = "left"
+    )
+  ),
+  columns = list(
+    TITULAR = colDef(
+      name = "Titular Minero",
+      minWidth = 200,
+      style = list(fontWeight = "400"),
+       cell = function(value, index) {
+        div(
+          class = "team",
+          img(class = "team-flag", alt = paste(value, "flag"), src = sprintf("../cu_prod_peru_tbl/images/%s.png", value)),
+          div(
+            span(class = "team-name", value)
+          )
+        )
+      }
+    ),
+    REGION = colDef(
+      name = "Region",
+      minWidth = 80,
+      style = list(fontWeight = "400")
+    ),
+    PROD_CU = colDef(
+      name = "Cobre prod (TMF)",
+      cell = function(value) {
+        width <- paste0(value * 100 / max(data_lean_4$PROD_CU), "%")
+        value <- format(value, big.mark = ",")
+        value <- format(value, width = 20, justify = "right")
+        bar <- div(
+          class = "bar-chart",
+          style = list(marginRight = "6px"),
+          div(
+            class = "bar",
+            style = list(width = width, backgroundColor = "#0072B2")
+          )
+        )
+        div(class = "bar-cell", span(class = "number", value), bar)
+      }
+    )
+  )
+)
+
+div(class = "standings",
+  tbl,
+  "Fuente: Elaboración Propia. Referencia: Ministerio de Energía y Minas de Perú. Ene-2023"
+)
+```
+
+```{css styles, eval=FALSE, echo=FALSE}
+.bar-cell {
+  display: flex;
+  align-items: center;
+}
+.number {
+  font-size: 20px;
+  align-items: center;
+}
+.bar-chart {
+  flex-grow: 1;
+  margin-left: 6px;
+  height: 22px;
+  align-items: center;
+}
+.bar {
+  height: 100%;
+  align-items: center;
+}
+.team {
+  display: flex;
+  align-items: center;
+}
+.team-flag {
+  height: 1.3rem;
+  border: 1px solid #f0f0f0;
+}
+.team-name {
+  margin-left: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.region {
+  font-size: 20px;
+  margin-left: 1.0rem;
+  align-items: center;
+}
+.title{
+  font-size: 15px;
+}
+
+```
